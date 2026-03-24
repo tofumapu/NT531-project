@@ -51,15 +51,14 @@ stages:
         command: 'push'
         tags: |
           $(tag)
-- stage: UpdateManifest
+- stage: UpdateK8sManifest
   displayName: Update K8s Manifest
-  dependsOn: Push
   jobs:
-  - job: Update
-    displayName: Update Manifest
+  - job: UpdateManifest
+    displayName: Update manifest with new image tag
     steps:
-    - task: Bash@3
-      displayName: Run UpdateK8sManifests Script
+    - task: ShellScript@2
       inputs:
-        filePath: 'vote/updateK8sManifests.sh'
-        arguments: 'vote $(imageRepository) $(tag)'
+        scriptPath: 'vote/updateK8sManifests.sh'
+        args: 'vote $(imageRepository) $(tag)'
+      displayName: Run UpdateK8sManifests Script

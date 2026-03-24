@@ -51,6 +51,7 @@ stages:
         command: 'push'
         tags: |
           $(tag)
+          latest
 - stage: UpdateK8sManifest
   displayName: Update K8s Manifest
   dependsOn: Push
@@ -80,7 +81,7 @@ stages:
           echo "=== Nội dung trước khi sửa ==="
           cat k8s-specifications/vote-deployment.yaml | grep image
 
-          sed -i "s|image:.*examplevotingapp_vote.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
+          sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
               k8s-specifications/vote-deployment.yaml
 
           echo "=== Nội dung sau khi sửa ==="

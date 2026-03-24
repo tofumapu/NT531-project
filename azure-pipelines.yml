@@ -67,8 +67,6 @@ stages:
 
           git config --global user.email "pipeline@devops.com"
           git config --global user.name "Azure Pipeline"
-
-          # Fix lỗi RPC/GnuTLS
           git config --global http.postBuffer 524288000
           git config --global http.lowSpeedLimit 0
           git config --global http.lowSpeedTime 999
@@ -82,7 +80,7 @@ stages:
           echo "=== Nội dung trước khi sửa ==="
           cat k8s-specifications/vote-deployment.yaml | grep image
 
-          sed -i "s|image:.*vote:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
+          sed -i "s|image:.*examplevotingapp_vote.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
               k8s-specifications/vote-deployment.yaml
 
           echo "=== Nội dung sau khi sửa ==="

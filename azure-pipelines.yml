@@ -53,17 +53,41 @@ stages:
           $(tag)
 - stage: UpdateK8sManifest
   displayName: Update K8s Manifest
+  dependsOn: Push
   jobs:
   - job: UpdateManifest
-    displayName: Update manifest
+    displayName: Update manifest with new image tag
     steps:
-    - script: |
-        dos2unix vote/updateK8sManifests.sh
-        chmod +x vote/updateK8sManifests.sh
-      displayName: Set execute permission
     - task: Bash@3
       inputs:
-        targetType: 'filePath'
-        filePath: 'vote/updateK8sManifests.sh'
-        arguments: 'vote $(imageRepository) $(tag)'
-      displayName: Run UpdateK8sManifests Script
+        targetType: 'inline'
+        script: |
+          set -x
+          set -e
+
+          git config --global user.email "pipeline@devops.com"
+          git config --global user.name "Azure Pipeline"
+
+          REPO_URL="https://$(PAT)@dev.azure.com/tofucut3/votingApp/_git/votingApp"
+          BRANCH="dependabot/npm_and_yarn/result/express-4.19.2"
+
+          git clone -b "$BRANCH" "$REPO_URL" /tmp/temp_repo
+          cd /tmp/temp_repo
+
+          echo "=== Nội dung trước khi sửa ==="
+          cat k8s-specifications/vote-deployment.yaml | grep image
+
+          sed -i "s|image:.*vote:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
+              k8s-specifications/vote-deployment.yaml
+
+          echo "=== Nội dung sau khi sửa ==="
+          cat k8s-specifications/vote-deployment.yaml | grep image
+
+          git add k8s-specifications/vote-deployment.yaml
+          git diff --staged --quiet \
+              && echo "Không có thay đổi" \
+              || git commit -m "Update vote image to tag $(tag)"
+          git push
+
+          rm -rf /tmp/temp_repo
+      displayName: Update K8s Manifest inline

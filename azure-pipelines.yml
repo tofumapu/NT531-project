@@ -38,6 +38,7 @@ stages:
         dockerfile: 'vote/Dockerfile'
         tags: |
           $(tag)
+          latest
 - stage: Push
   displayName: Push the Voting App
   jobs:

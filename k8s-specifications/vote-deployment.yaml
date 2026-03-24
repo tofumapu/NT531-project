@@ -15,7 +15,7 @@ spec:
         app: vote
     spec:
       containers:
-      - image: tofuvotingappacr.azurecr.io/votingapp/vote:latest
+      - image: tofuvotingappacr.azurecr.io/votingapp/vote:23
         name: vote
         imagePullPolicy: Always
         ports:

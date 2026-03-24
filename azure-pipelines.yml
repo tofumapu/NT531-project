@@ -58,6 +58,7 @@ stages:
     displayName: Update manifest
     steps:
     - script: |
+        dos2unix vote/updateK8sManifests.sh
         chmod +x vote/updateK8sManifests.sh
       displayName: Set execute permission
     - task: Bash@3

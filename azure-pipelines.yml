@@ -55,10 +55,14 @@ stages:
   displayName: Update K8s Manifest
   jobs:
   - job: UpdateManifest
-    displayName: Update manifest with new image tag
+    displayName: Update manifest
     steps:
-    - task: ShellScript@2
+    - script: |
+        chmod +x vote/updateK8sManifests.sh
+      displayName: Set execute permission
+    - task: Bash@3
       inputs:
-        scriptPath: 'vote/updateK8sManifests.sh'
-        args: 'vote $(imageRepository) $(tag)'
+        targetType: 'filePath'
+        filePath: 'vote/updateK8sManifests.sh'
+        arguments: 'vote $(imageRepository) $(tag)'
       displayName: Run UpdateK8sManifests Script

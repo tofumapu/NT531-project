@@ -68,6 +68,11 @@ stages:
           git config --global user.email "pipeline@devops.com"
           git config --global user.name "Azure Pipeline"
 
+          # Fix lỗi RPC/GnuTLS
+          git config --global http.postBuffer 524288000
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 999
+
           REPO_URL="https://$(PAT)@dev.azure.com/tofucut3/votingApp/_git/votingApp"
           BRANCH="dependabot/npm_and_yarn/result/express-4.19.2"
 

@@ -16,7 +16,7 @@ variables:
   tag: '$(Build.BuildId)'
 
 pool:
-  name: 'votingApp-Agent'
+  vmImage: 'ubuntu-latest'
 
 stages:
 - stage: Build

@@ -75,135 +75,129 @@ stages:
   displayName: Deploy to AKS
   dependsOn: BuildAndPush
   jobs:
-  - deployment: Deploy
+  - job: Deploy
     displayName: Apply Kubernetes Manifests
     pool:
       vmImage: 'ubuntu-latest'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - checkout: self
+    steps:
+    - checkout: self
 
-          - task: Bash@3
-            displayName: Prepare manifests for AKS deployment
-            inputs:
-              targetType: 'inline'
-              script: |
-                set -euxo pipefail
+    - task: Bash@3
+      displayName: Prepare manifests for AKS deployment
+      inputs:
+        targetType: 'inline'
+        script: |
+          set -euxo pipefail
 
-                MANIFEST_DIR="$(Pipeline.Workspace)/manifests"
-                rm -rf "$MANIFEST_DIR"
-                mkdir -p "$MANIFEST_DIR"
-                cp -R k8s-specifications/. "$MANIFEST_DIR/"
+          MANIFEST_DIR="$(Pipeline.Workspace)/manifests"
+          rm -rf "$MANIFEST_DIR"
+          mkdir -p "$MANIFEST_DIR"
+          cp -R k8s-specifications/. "$MANIFEST_DIR/"
 
-                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|" \
-                  "$MANIFEST_DIR/vote-deployment.yaml"
-                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/result:$(tag)|" \
-                  "$MANIFEST_DIR/result-deployment.yaml"
-                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/worker:$(tag)|" \
-                  "$MANIFEST_DIR/worker-deployment.yaml"
+          sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|" \
+            "$MANIFEST_DIR/vote-deployment.yaml"
+          sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/result:$(tag)|" \
+            "$MANIFEST_DIR/result-deployment.yaml"
+          sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/worker:$(tag)|" \
+            "$MANIFEST_DIR/worker-deployment.yaml"
 
-                # AKS should pull directly from ACR after attach-acr, so old pull secrets are removed.
-                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/vote-deployment.yaml"
-                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/result-deployment.yaml"
-                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/worker-deployment.yaml"
+          # AKS should pull directly from ACR after attach-acr, so old pull secrets are removed.
+          sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/vote-deployment.yaml"
+          sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/result-deployment.yaml"
+          sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/worker-deployment.yaml"
 
-          - task: Kubernetes@1
-            displayName: kubectl apply base manifests
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(kubernetesNamespace)'
-              command: 'apply'
-              useConfigurationFile: true
-              configuration: '$(Pipeline.Workspace)/manifests/*.yaml'
+    - task: Kubernetes@1
+      displayName: kubectl apply base manifests
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(kubernetesNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: '$(Pipeline.Workspace)/manifests/*.yaml'
 
-          - task: Kubernetes@1
-            displayName: kubectl rollout status vote
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(kubernetesNamespace)'
-              command: 'rollout'
-              arguments: 'status deployment/vote --timeout=180s'
+    - task: Kubernetes@1
+      displayName: kubectl rollout status vote
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(kubernetesNamespace)'
+        command: 'rollout'
+        arguments: 'status deployment/vote --timeout=180s'
 
-          - task: Kubernetes@1
-            displayName: kubectl rollout status result
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(kubernetesNamespace)'
-              command: 'rollout'
-              arguments: 'status deployment/result --timeout=180s'
+    - task: Kubernetes@1
+      displayName: kubectl rollout status result
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(kubernetesNamespace)'
+        command: 'rollout'
+        arguments: 'status deployment/result --timeout=180s'
 
-          - task: Kubernetes@1
-            displayName: kubectl rollout status worker
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(kubernetesNamespace)'
-              command: 'rollout'
-              arguments: 'status deployment/worker --timeout=180s'
+    - task: Kubernetes@1
+      displayName: kubectl rollout status worker
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(kubernetesNamespace)'
+        command: 'rollout'
+        arguments: 'status deployment/worker --timeout=180s'
 
 - stage: DeployMonitoring
   displayName: Deploy Monitoring Stack (Prometheus + Grafana)
   dependsOn: DeployToAKS
   jobs:
-  - deployment: DeployMonitoring
+  - job: DeployMonitoring
     displayName: Helm install kube-prometheus-stack
     pool:
       vmImage: 'ubuntu-latest'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - checkout: self
+    steps:
+    - checkout: self
 
-          - task: HelmDeploy@0
-            displayName: Helm repo add prometheus-community
-            inputs:
-              command: 'repo'
-              arguments: 'add prometheus-community https://prometheus-community.github.io/helm-charts'
+    - task: HelmDeploy@0
+      displayName: Helm repo add prometheus-community
+      inputs:
+        command: 'repo'
+        arguments: 'add prometheus-community https://prometheus-community.github.io/helm-charts'
 
-          - task: HelmDeploy@0
-            displayName: Helm repo update
-            inputs:
-              command: 'repo'
-              arguments: 'update'
+    - task: HelmDeploy@0
+      displayName: Helm repo update
+      inputs:
+        command: 'repo'
+        arguments: 'update'
 
-          - task: HelmDeploy@0
-            displayName: Deploy kube-prometheus-stack
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(monitoringNamespace)'
-              command: 'upgrade'
-              chartType: 'Name'
-              chartName: 'prometheus-community/kube-prometheus-stack'
-              releaseName: 'prom-stack'
-              valueFile: 'monitoring/prometheus-values.yaml'
-              overrideValues: 'grafana.adminPassword=$(GRAFANA_ADMIN_PASSWORD)'
-              install: true
-              waitForExecution: true
-              arguments: '--create-namespace --timeout 5m'
+    - task: HelmDeploy@0
+      displayName: Deploy kube-prometheus-stack
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'upgrade'
+        chartType: 'Name'
+        chartName: 'prometheus-community/kube-prometheus-stack'
+        releaseName: 'prom-stack'
+        valueFile: 'monitoring/prometheus-values.yaml'
+        overrideValues: 'grafana.adminPassword=$(GRAFANA_ADMIN_PASSWORD)'
+        install: true
+        waitForExecution: true
+        arguments: '--create-namespace --timeout 5m'
 
-          - task: Kubernetes@1
-            displayName: Apply VoteApp alert rules
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(monitoringNamespace)'
-              command: 'apply'
-              useConfigurationFile: true
-              configuration: 'monitoring/voteapp-alert-rules.yaml'
+    - task: Kubernetes@1
+      displayName: Apply VoteApp alert rules
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'monitoring/voteapp-alert-rules.yaml'
 
-          - task: Kubernetes@1
-            displayName: Apply ServiceMonitors
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-              namespace: '$(monitoringNamespace)'
-              command: 'apply'
-              useConfigurationFile: true
-              configuration: 'k8s-specifications/voteapp-servicemonitors.yaml'
+    - task: Kubernetes@1
+      displayName: Apply ServiceMonitors
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'k8s-specifications/voteapp-servicemonitors.yaml'

@@ -65,6 +65,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          sed -i 's/\r$//' scripts/updateK8sManifests.sh
-          chmod +x scripts/updateK8sManifests.sh
-          bash scripts/updateK8sManifests.sh "worker" "$(imageRepository)" "$(tag)"
+          SCRIPT="$(Build.SourcesDirectory)/vote/updateK8sManifests.sh"
+          sed -i 's/\r$//' "$SCRIPT"
+          chmod +x "$SCRIPT"
+          bash "$SCRIPT" "worker" "$(imageRepository)" "$(tag)"

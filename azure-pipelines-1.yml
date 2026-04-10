@@ -16,7 +16,7 @@ variables:
   tag: '$(Build.BuildId)'
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'votingApp-Agent'
 
 stages:
 - stage: Build
@@ -35,6 +35,7 @@ stages:
         dockerfile: 'result/Dockerfile'
         tags: |
           $(tag)
+        arguments: '--network=host'
 - stage: Push
   displayName: Push the Voting App
   jobs:

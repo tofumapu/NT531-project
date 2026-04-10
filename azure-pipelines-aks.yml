@@ -31,7 +31,7 @@ stages:
   - job: Build
     displayName: Build and Push Vote, Result, Worker
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'votingApp-Agent'
     steps:
     - checkout: self
 
@@ -46,6 +46,7 @@ stages:
         tags: |
           $(tag)
           latest
+        arguments: '--network=host'
 
     - task: Docker@2
       displayName: Build and push result image
@@ -58,6 +59,7 @@ stages:
         tags: |
           $(tag)
           latest
+        arguments: '--network=host'
 
     - task: Docker@2
       displayName: Build and push worker image
@@ -70,6 +72,7 @@ stages:
         tags: |
           $(tag)
           latest
+        arguments: '--network=host'
 
 - stage: DeployToAKS
   displayName: Deploy to AKS
@@ -78,7 +81,7 @@ stages:
   - job: Deploy
     displayName: Apply Kubernetes Manifests
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'votingApp-Agent'
     steps:
     - checkout: self
 
@@ -150,7 +153,7 @@ stages:
   - job: DeployMonitoring
     displayName: Helm install kube-prometheus-stack
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'votingApp-Agent'
     steps:
     - checkout: self
 

@@ -15,7 +15,7 @@ pr: none
 
 variables:
   dockerRegistryServiceConnection: 'tofuVotingAppACR'
-  kubernetesServiceConnection: 'REPLACE_WITH_KUBERNETES_SERVICE_CONNECTION'
+  kubernetesServiceConnection: 'votingApp-k8s-conn'
   containerRegistry: 'tofuvotingappacr.azurecr.io'
   imageRepository: 'votingapp'
   kubernetesNamespace: 'default'

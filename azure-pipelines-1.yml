@@ -51,3 +51,19 @@ stages:
         command: 'push'
         tags: |
           $(tag)
+- stage: UpdateManifest
+  displayName: Update K8s Manifest
+  dependsOn: Push
+  jobs:
+  - job: UpdateManifest
+    displayName: Update result manifest
+    steps:
+    - task: Bash@3
+      displayName: Run updateK8sManifests.sh for result
+      inputs:
+        targetType: 'inline'
+        script: |
+          SCRIPT="$(Build.SourcesDirectory)/vote/updateK8sManifests.sh"
+          sed -i 's/\r$//' "$SCRIPT"
+          chmod +x "$SCRIPT"
+          bash "$SCRIPT" "result" "$(imageRepository)" "$(tag)"

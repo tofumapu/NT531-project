@@ -189,17 +189,13 @@ stages:
     steps:
     - checkout: self
 
-    - task: HelmDeploy@0
-      displayName: Helm repo add prometheus-community
+    - task: Bash@3
+      displayName: Helm repo add and update
       inputs:
-        command: 'repo'
-        arguments: 'add prometheus-community https://prometheus-community.github.io/helm-charts'
-
-    - task: HelmDeploy@0
-      displayName: Helm repo update
-      inputs:
-        command: 'repo'
-        arguments: 'update'
+        targetType: 'inline'
+        script: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
 
     - task: HelmDeploy@0
       displayName: Deploy kube-prometheus-stack

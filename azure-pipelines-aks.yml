@@ -126,6 +126,8 @@ stages:
           rm -rf "$MANIFEST_DIR"
           mkdir -p "$MANIFEST_DIR"
           cp -R k8s-specifications/. "$MANIFEST_DIR/"
+          # ServiceMonitors belong to 'monitoring' namespace, applied separately in DeployMonitoring stage
+          rm -f "$MANIFEST_DIR/voteapp-servicemonitors.yaml"
 
           sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|" \
             "$MANIFEST_DIR/vote-deployment.yaml"

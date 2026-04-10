@@ -5,13 +5,12 @@
 trigger:
   paths:
     include:
-      - worker/*    # chỉ trigger khi có thay đổi trong thư mục worker
+      - worker/*
 
 resources:
 - repo: self
 
 variables:
-  # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: '00f95541-34f4-46c8-81bc-fb3b7dfc34e0'
   imageRepository: 'votingapp'
   containerRegistry: 'tofuvotingappacr.azurecr.io'
@@ -19,35 +18,53 @@ variables:
   tag: '$(Build.BuildId)'
 
 pool:
-  name: 'votingApp-Agent'   # tên agent pool đã tạo ở Step 4
+  name: 'votingApp-Agent'
 
 stages:
 - stage: Build
-  displayName: Build the Voting App
+  displayName: Build the Worker App
   jobs:
   - job: Build
     displayName: Build
-
     steps:
     - task: Docker@2
-      displayName: Build and push an image to container registry
+      displayName: Build worker image
       inputs:
         containerRegistry: 'tofuVotingAppACR'
-        repository: 'votingApp/worker'
+        repository: '$(imageRepository)/worker'
         command: 'build'
-        dockerfile: 'worker/Dockerfile'
+        Dockerfile: '$(dockerfilePath)'
         tags: |
           $(tag)
+
 - stage: Push
-  displayName: Push the Voting App
+  displayName: Push the Worker App
+  dependsOn: Build
   jobs:
   - job: Push
-    displayName: Pushing the voting App
+    displayName: Push
     steps:
     - task: Docker@2
+      displayName: Push worker image
       inputs:
         containerRegistry: 'tofuVotingAppACR'
-        repository: 'votingApp/worker'
+        repository: '$(imageRepository)/worker'
         command: 'push'
         tags: |
           $(tag)
+
+- stage: UpdateManifest
+  displayName: Update K8s Manifest
+  dependsOn: Push
+  jobs:
+  - job: UpdateManifest
+    displayName: Update worker manifest
+    steps:
+    - task: Bash@3
+      displayName: Run updateK8sManifests.sh for worker
+      inputs:
+        targetType: 'inline'
+        script: |
+          sed -i 's/\r$//' scripts/updateK8sManifests.sh
+          chmod +x scripts/updateK8sManifests.sh
+          bash scripts/updateK8sManifests.sh "worker" "$(imageRepository)" "$(tag)"

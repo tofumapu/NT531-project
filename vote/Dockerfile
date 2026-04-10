@@ -25,8 +25,11 @@ FROM base AS final
 # Copy our code from the current folder to the working directory inside the container
 COPY . .
 
+ENV PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-multiproc
+RUN mkdir -p ${PROMETHEUS_MULTIPROC_DIR}
+
 # Make port 80 available for links and/or publish
 EXPOSE 80
 
 # Define our command to be run when launching the container
-CMD ["gunicorn", "app:app", "-b", "0.0.0.0:80", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]
+CMD ["sh", "-c", "rm -rf ${PROMETHEUS_MULTIPROC_DIR}/* && exec gunicorn -c gunicorn_conf.py app:app -b 0.0.0.0:80 --log-file - --access-logfile - --workers 4 --keep-alive 0"]

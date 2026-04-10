@@ -1,0 +1,144 @@
+trigger:
+  branches:
+    include:
+      - dependabot/npm_and_yarn/result/express-4.19.2
+  paths:
+    include:
+      - vote/*
+      - result/*
+      - worker/*
+      - k8s-specifications/*
+      - monitoring/*
+      - azure-pipelines-aks.yml
+
+pr: none
+
+variables:
+  dockerRegistryServiceConnection: 'tofuVotingAppACR'
+  kubernetesServiceConnection: 'REPLACE_WITH_KUBERNETES_SERVICE_CONNECTION'
+  containerRegistry: 'tofuvotingappacr.azurecr.io'
+  imageRepository: 'votingapp'
+  kubernetesNamespace: 'default'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: BuildAndPush
+  displayName: Build and Push Images
+  jobs:
+  - job: Build
+    displayName: Build and Push Vote, Result, Worker
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+
+    - task: Docker@2
+      displayName: Build and push vote image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/vote'
+        command: 'buildAndPush'
+        Dockerfile: 'vote/Dockerfile'
+        buildContext: 'vote'
+        tags: |
+          $(tag)
+          latest
+
+    - task: Docker@2
+      displayName: Build and push result image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/result'
+        command: 'buildAndPush'
+        Dockerfile: 'result/Dockerfile'
+        buildContext: 'result'
+        tags: |
+          $(tag)
+          latest
+
+    - task: Docker@2
+      displayName: Build and push worker image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/worker'
+        command: 'buildAndPush'
+        Dockerfile: 'worker/Dockerfile'
+        buildContext: 'worker'
+        tags: |
+          $(tag)
+          latest
+
+- stage: DeployToAKS
+  displayName: Deploy to AKS
+  dependsOn: BuildAndPush
+  jobs:
+  - deployment: Deploy
+    displayName: Apply Kubernetes Manifests
+    environment: 'aks-votingapp'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: Bash@3
+            displayName: Prepare manifests for AKS deployment
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -euxo pipefail
+
+                MANIFEST_DIR="$(Pipeline.Workspace)/manifests"
+                rm -rf "$MANIFEST_DIR"
+                mkdir -p "$MANIFEST_DIR"
+                cp -R k8s-specifications/. "$MANIFEST_DIR/"
+
+                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|" \
+                  "$MANIFEST_DIR/vote-deployment.yaml"
+                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/result:$(tag)|" \
+                  "$MANIFEST_DIR/result-deployment.yaml"
+                sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/worker:$(tag)|" \
+                  "$MANIFEST_DIR/worker-deployment.yaml"
+
+                # AKS should pull directly from ACR after attach-acr, so old pull secrets are removed.
+                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/vote-deployment.yaml"
+                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/result-deployment.yaml"
+                sed -i '/imagePullSecrets:/,+1d' "$MANIFEST_DIR/worker-deployment.yaml"
+
+          - task: Kubernetes@1
+            displayName: kubectl apply base manifests
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              command: 'apply'
+              useConfigurationFile: true
+              configuration: '$(Pipeline.Workspace)/manifests'
+
+          - task: Kubernetes@1
+            displayName: kubectl rollout status vote
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(kubernetesNamespace)'
+              command: 'rollout'
+              arguments: 'status deployment/vote --timeout=180s'
+
+          - task: Kubernetes@1
+            displayName: kubectl rollout status result
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(kubernetesNamespace)'
+              command: 'rollout'
+              arguments: 'status deployment/result --timeout=180s'
+
+          - task: Kubernetes@1
+            displayName: kubectl rollout status worker
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(kubernetesNamespace)'
+              command: 'rollout'
+              arguments: 'status deployment/worker --timeout=180s'

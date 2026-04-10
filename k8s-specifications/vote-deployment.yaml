@@ -13,7 +13,13 @@ spec:
     metadata:
       labels:
         app: vote
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "80"
     spec:
+      imagePullSecrets:
+      - name: acr-secret
       containers:
       - image: tofuvotingappacr.azurecr.io/votingapp/vote:24
         name: vote

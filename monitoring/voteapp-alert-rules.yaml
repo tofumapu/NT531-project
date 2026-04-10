@@ -1,0 +1,117 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: voteapp-alerts
+  namespace: monitoring
+  labels:
+    release: prom-stack
+spec:
+  groups:
+    - name: voteapp.k8s.rules
+      rules:
+        - alert: VoteAppPodRestarting
+          expr: |
+            sum by (pod) (
+              increase(
+                kube_pod_container_status_restarts_total{
+                  namespace="default",
+                  pod=~"vote-.*|result-.*|worker-.*|redis-.*|db-.*"
+                }[10m]
+              )
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            tier: "1"
+            team: devops
+          annotations:
+            summary: "VoteApp pod dang restart"
+            description: "Pod {{ $labels.pod }} trong namespace default da restart trong 10 phut gan day."
+
+        - alert: VoteAppPodNotReady
+          expr: |
+            kube_pod_status_ready{
+              namespace="default",
+              condition="true",
+              pod=~"vote-.*|result-.*|worker-.*|redis-.*|db-.*"
+            } == 0
+          for: 3m
+          labels:
+            severity: critical
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "VoteApp pod khong san sang"
+            description: "Pod {{ $labels.pod }} o namespace default khong Ready lien tuc trong 3 phut."
+
+        - alert: VoteAppDeploymentReplicaMismatch
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="default",
+              deployment=~"vote|result|worker"
+            }
+            <
+            kube_deployment_spec_replicas{
+              namespace="default",
+              deployment=~"vote|result|worker"
+            }
+          for: 5m
+          labels:
+            severity: critical
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "Replica kha dung thap hon mong doi"
+            description: "Deployment {{ $labels.deployment }} o namespace default chua du so replica kha dung."
+
+        - alert: VoteAppNodeHighCpu
+          expr: |
+            (
+              100 - (
+                avg by (instance) (
+                  rate(node_cpu_seconds_total{mode="idle"}[5m])
+                ) * 100
+              )
+            ) > 85
+          for: 10m
+          labels:
+            severity: warning
+            tier: "1"
+            team: devops
+          annotations:
+            summary: "Node CPU cao"
+            description: "Node {{ $labels.instance }} co CPU trung binh > 85% trong 10 phut."
+
+        - alert: VoteAppNodeMemoryPressure
+          expr: |
+            (
+              (
+                node_memory_MemAvailable_bytes
+                /
+                node_memory_MemTotal_bytes
+              ) * 100
+            ) < 15
+          for: 10m
+          labels:
+            severity: warning
+            tier: "1"
+            team: devops
+          annotations:
+            summary: "Node memory kha dung thap"
+            description: "Node {{ $labels.instance }} con duoi 15% memory kha dung trong 10 phut."
+
+        - alert: VoteAppHighTcpRetransmissionRate
+          expr: |
+            (
+              rate(node_netstat_Tcp_RetransSegs[5m])
+              /
+              clamp_min(rate(node_netstat_Tcp_OutSegs[5m]), 1)
+            ) * 100 > 2
+          for: 5m
+          labels:
+            severity: warning
+            tier: "1"
+            team: devops
+          annotations:
+            summary: "Ty le TCP retransmission cao"
+            description: "Node {{ $labels.instance }} co TCP retransmission rate > 2% trong 5 phut."

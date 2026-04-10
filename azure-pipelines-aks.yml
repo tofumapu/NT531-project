@@ -36,11 +36,11 @@ stages:
     - checkout: self
 
     - task: Docker@2
-      displayName: Build and push vote image
+      displayName: Build vote image
       inputs:
         containerRegistry: '$(dockerRegistryServiceConnection)'
         repository: '$(imageRepository)/vote'
-        command: 'buildAndPush'
+        command: 'build'
         Dockerfile: 'vote/Dockerfile'
         buildContext: 'vote'
         tags: |
@@ -49,11 +49,21 @@ stages:
         arguments: '--network=host'
 
     - task: Docker@2
-      displayName: Build and push result image
+      displayName: Push vote image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/vote'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
+
+    - task: Docker@2
+      displayName: Build result image
       inputs:
         containerRegistry: '$(dockerRegistryServiceConnection)'
         repository: '$(imageRepository)/result'
-        command: 'buildAndPush'
+        command: 'build'
         Dockerfile: 'result/Dockerfile'
         buildContext: 'result'
         tags: |
@@ -62,17 +72,37 @@ stages:
         arguments: '--network=host'
 
     - task: Docker@2
-      displayName: Build and push worker image
+      displayName: Push result image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/result'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
+
+    - task: Docker@2
+      displayName: Build worker image
       inputs:
         containerRegistry: '$(dockerRegistryServiceConnection)'
         repository: '$(imageRepository)/worker'
-        command: 'buildAndPush'
+        command: 'build'
         Dockerfile: 'worker/Dockerfile'
         buildContext: 'worker'
         tags: |
           $(tag)
           latest
         arguments: '--network=host'
+
+    - task: Docker@2
+      displayName: Push worker image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)/worker'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
 
 - stage: DeployToAKS
   displayName: Deploy to AKS

@@ -1,11 +1,8 @@
-# Docker
-# Build and push an image to Azure Container Registry
-# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+trigger: none
+pr: none
 
-trigger:
-  paths:
-    include:
-      - vote/*    # chỉ trigger khi có thay đổi trong thư mục vote
+# Deprecated pipeline.
+# Use azure-pipelines-aks.yml for build, push, and deploy.
 
 resources:
 - repo: self
@@ -19,7 +16,7 @@ variables:
   tag: '$(Build.BuildId)'
 
 pool:
-  name: 'votingApp-Agent'   # tên agent pool đã tạo ở Step 4
+  name: 'votingApp-Agent'
 
 stages:
 - stage: Build

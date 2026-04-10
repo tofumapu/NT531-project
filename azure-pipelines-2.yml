@@ -1,11 +1,8 @@
-# Docker
-# Build and push an image to Azure Container Registry
-# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+trigger: none
+pr: none
 
-trigger:
-  paths:
-    include:
-      - worker/*
+# Deprecated pipeline.
+# Use azure-pipelines-aks.yml for build, push, and deploy.
 
 resources:
 - repo: self

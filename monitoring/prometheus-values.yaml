@@ -31,7 +31,7 @@ grafana:
     type: NodePort
     nodePort: 31300
   adminUser: admin
-  adminPassword: "ChangeMe-Grafana-Admin-2026!"
+  # adminPassword: intentionally omitted — passed via pipeline variable $(GRAFANA_ADMIN_PASSWORD)
   resources:
     requests:
       memory: 256Mi

@@ -19,7 +19,10 @@ variables:
   containerRegistry: 'tofuvotingappacr.azurecr.io'
   imageRepository: 'votingapp'
   kubernetesNamespace: 'default'
+  monitoringNamespace: 'monitoring'
   tag: '$(Build.BuildId)'
+  # GRAFANA_ADMIN_PASSWORD: set as a secret variable in Azure DevOps Pipeline settings
+  # (Pipelines > Edit > Variables > + Add > check "Keep this value secret")
 
 stages:
 - stage: BuildAndPush
@@ -74,7 +77,6 @@ stages:
   jobs:
   - deployment: Deploy
     displayName: Apply Kubernetes Manifests
-    environment: 'aks-votingapp'
     pool:
       vmImage: 'ubuntu-latest'
     strategy:
@@ -112,9 +114,10 @@ stages:
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(kubernetesNamespace)'
               command: 'apply'
               useConfigurationFile: true
-              configuration: '$(Pipeline.Workspace)/manifests'
+              configuration: '$(Pipeline.Workspace)/manifests/*.yaml'
 
           - task: Kubernetes@1
             displayName: kubectl rollout status vote
@@ -142,3 +145,65 @@ stages:
               namespace: '$(kubernetesNamespace)'
               command: 'rollout'
               arguments: 'status deployment/worker --timeout=180s'
+
+- stage: DeployMonitoring
+  displayName: Deploy Monitoring Stack (Prometheus + Grafana)
+  dependsOn: DeployToAKS
+  jobs:
+  - deployment: DeployMonitoring
+    displayName: Helm install kube-prometheus-stack
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: HelmDeploy@0
+            displayName: Helm repo add prometheus-community
+            inputs:
+              command: 'repo'
+              arguments: 'add prometheus-community https://prometheus-community.github.io/helm-charts'
+
+          - task: HelmDeploy@0
+            displayName: Helm repo update
+            inputs:
+              command: 'repo'
+              arguments: 'update'
+
+          - task: HelmDeploy@0
+            displayName: Deploy kube-prometheus-stack
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(monitoringNamespace)'
+              command: 'upgrade'
+              chartType: 'Name'
+              chartName: 'prometheus-community/kube-prometheus-stack'
+              releaseName: 'prom-stack'
+              valueFile: 'monitoring/prometheus-values.yaml'
+              overrideValues: 'grafana.adminPassword=$(GRAFANA_ADMIN_PASSWORD)'
+              install: true
+              waitForExecution: true
+              arguments: '--create-namespace --timeout 5m'
+
+          - task: Kubernetes@1
+            displayName: Apply VoteApp alert rules
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(monitoringNamespace)'
+              command: 'apply'
+              useConfigurationFile: true
+              configuration: 'monitoring/voteapp-alert-rules.yaml'
+
+          - task: Kubernetes@1
+            displayName: Apply ServiceMonitors
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+              namespace: '$(monitoringNamespace)'
+              command: 'apply'
+              useConfigurationFile: true
+              configuration: 'k8s-specifications/voteapp-servicemonitors.yaml'

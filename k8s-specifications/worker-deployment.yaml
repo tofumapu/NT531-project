@@ -21,7 +21,7 @@ spec:
       imagePullSecrets:
       - name: acr-secret
       containers:
-      - image: tofuvotingappacr.azurecr.io/votingapp/worker:52
+      - image: tofuvotingappacr.azurecr.io/votingapp/worker:54
         name: worker
         ports:
         - containerPort: 9090

@@ -8,8 +8,8 @@ import time
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client import CollectorRegistry, multiprocess
 
-option_a = os.getenv('OPTION_A', "Kem Chanh")
-option_b = os.getenv('OPTION_B', "Kem Dâu")
+option_a = os.getenv('OPTION_A', "Chó")
+option_b = os.getenv('OPTION_B', "Mèo")
 hostname = socket.gethostname()
 
 app = Flask(__name__)

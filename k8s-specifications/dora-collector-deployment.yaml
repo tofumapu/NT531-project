@@ -1,0 +1,121 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dora-collector
+  namespace: monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dora-collector-secrets
+  namespace: monitoring
+type: Opaque
+stringData:
+  # Set bằng `kubectl create secret generic ... --from-literal=AZDO_PAT=$PAT`
+  # Manifest này là placeholder, sẽ bị overwrite bằng pipeline secret
+  AZDO_PAT: "REPLACE_ME"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dora-collector
+  namespace: monitoring
+  labels:
+    app: dora-collector
+    component: dora
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dora-collector
+  template:
+    metadata:
+      labels:
+        app: dora-collector
+        component: dora
+    spec:
+      serviceAccountName: dora-collector
+      imagePullSecrets:
+      - name: acr-secret
+      containers:
+      - name: dora-collector
+        image: tofuvotingappacr.azurecr.io/dora-collector:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+        env:
+        - name: AZDO_ORG
+          value: "tofucut3"
+        - name: AZDO_PROJECT
+          value: "votingApp"
+        - name: AZDO_PIPELINE_IDS
+          value: "1,2,3,4"
+        - name: PROMETHEUS_URL
+          value: "http://prom-stack-kube-prometheus-prometheus.monitoring.svc:9090"
+        - name: COLLECT_INTERVAL_SECONDS
+          value: "60"
+        - name: LOOKBACK_DAYS
+          value: "7"
+        - name: AZDO_PAT
+          valueFrom:
+            secretKeyRef:
+              name: dora-collector-secrets
+              key: AZDO_PAT
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-collector
+  namespace: monitoring
+  labels:
+    app: dora-collector
+    component: dora
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+  selector:
+    app: dora-collector
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dora-collector
+  namespace: monitoring
+  labels:
+    release: prom-stack
+spec:
+  selector:
+    matchLabels:
+      app: dora-collector
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 20s

@@ -235,3 +235,33 @@ stages:
         command: 'apply'
         useConfigurationFile: true
         configuration: 'k8s-specifications/voteapp-servicemonitors.yaml'
+
+    - task: Kubernetes@1
+      displayName: Apply Pushgateway
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'k8s-specifications/pushgateway-deployment.yaml'
+
+    - task: Kubernetes@1
+      displayName: Apply DORA Collector
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'k8s-specifications/dora-collector-deployment.yaml'
+
+    - task: Kubernetes@1
+      displayName: Apply Decision Log
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        namespace: '$(monitoringNamespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'k8s-specifications/decision-log-deployment.yaml'

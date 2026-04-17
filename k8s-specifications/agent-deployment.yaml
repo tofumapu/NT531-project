@@ -32,6 +32,9 @@ rules:
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["servicemonitors", "podmonitors", "prometheusrules"]
     verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -135,6 +138,30 @@ spec:
                   optional: true
             - name: TELEGRAM_NOTIFY_RESOLVED
               value: "true"
+            # Azure DevOps integration (pipeline_rerun action).
+            # Tạo secret:
+            #   kubectl -n monitoring create secret generic agent-azdo \
+            #     --from-literal=AZDO_PAT="<your-pat>" \
+            #     --dry-run=client -o yaml | kubectl apply -f -
+            - name: AZDO_ORG
+              value: "tofucut3"
+            - name: AZDO_PROJECT
+              value: "votingApp"
+            - name: AZDO_PIPELINE_ID
+              value: "4"
+            - name: AZDO_BRANCH
+              value: "dependabot/npm_and_yarn/result/express-4.19.2"
+            - name: AZDO_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: agent-azdo
+                  key: AZDO_PAT
+                  optional: true
+            # ArgoCD integration (argocd_sync action)
+            - name: ARGOCD_APP_NAME
+              value: "voteapp-service"
+            - name: ARGOCD_NAMESPACE
+              value: "argocd"
           resources:
             requests:
               cpu: "100m"

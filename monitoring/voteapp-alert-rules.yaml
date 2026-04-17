@@ -115,3 +115,39 @@ spec:
           annotations:
             summary: "Ty le TCP retransmission cao"
             description: "Node {{ $labels.instance }} co TCP retransmission rate > 2% trong 5 phut."
+
+        # KB3 — latency alert POD-LEVEL. Bổ sung cho TCP retrans vì retrans đọc
+        # counter node network ns, không capture tc/veth drops mà Chaos Mesh
+        # inject ở pod veth. Worker histogram sẽ phản ánh packet loss/delay
+        # worker→db vì mỗi vote process phải round-trip Postgres.
+        - alert: VoteAppWorkerProcessingLatencyHigh
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(worker_vote_processing_duration_seconds_bucket[2m]))
+            ) > 0.2
+          for: 2m
+          labels:
+            severity: warning
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "Worker p95 processing latency cao"
+            description: "Worker p95 vote processing > 200ms trong 2 phut — co the do network delay/loss toi db."
+
+        # KB3 — vote POST p95 (vote → redis). GET không gọi redis nên không
+        # phản ánh chaos; POST ghi vào redis queue.
+        - alert: VoteAppVotePostLatencyHigh
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(vote_http_request_duration_seconds_bucket{method="POST"}[2m]))
+            ) > 0.5
+          for: 2m
+          labels:
+            severity: warning
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "Vote POST p95 latency cao"
+            description: "Vote POST p95 > 500ms trong 2 phut — nghi ngo chaos vote -> redis."

@@ -21,9 +21,16 @@ spec:
       imagePullSecrets:
       - name: acr-secret
       containers:
-      - image: tofuvotingappacr.azurecr.io/votingapp/vote:50
+      - image: tofuvotingappacr.azurecr.io/votingapp/vote:72
         name: vote
         imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: vote
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi

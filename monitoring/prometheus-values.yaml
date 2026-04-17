@@ -73,6 +73,10 @@ alertmanager:
       group_interval: 30s
       repeat_interval: 5m
       routes:
+        - matchers:
+            - alertname="Watchdog"
+          receiver: "null"
+          continue: false
         # Critical/warning vẫn về cùng agent — Agent quyết định mức độ
         - matchers:
             - severity="critical"

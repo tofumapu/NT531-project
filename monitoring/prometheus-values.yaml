@@ -59,7 +59,7 @@ alertmanager:
     global:
       resolve_timeout: 2m
     route:
-      receiver: "null"
+      receiver: "agent-webhook"
       group_by:
         - alertname
         - namespace
@@ -68,14 +68,24 @@ alertmanager:
       group_interval: 30s
       repeat_interval: 5m
       routes:
+        # Critical/warning vẫn về cùng agent — Agent quyết định mức độ
         - matchers:
             - severity="critical"
-          receiver: "null"
+          receiver: "agent-webhook"
+          continue: true
         - matchers:
             - severity="warning"
-          receiver: "null"
+          receiver: "agent-webhook"
+          continue: true
     receivers:
       - name: "null"
+      - name: "agent-webhook"
+        webhook_configs:
+          - url: "http://agent.monitoring.svc.cluster.local:8080/webhook/alert"
+            send_resolved: true
+            max_alerts: 0          # 0 = no limit per request
+            http_config:
+              follow_redirects: true
 
 "prometheus-node-exporter":
   enabled: true
@@ -91,3 +101,8 @@ kubeControllerManager:
 
 kubeScheduler:
   enabled: false
+
+kubeProxy:
+  service:
+    selector:
+      component: kube-proxy

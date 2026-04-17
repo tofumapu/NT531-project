@@ -32,6 +32,11 @@ grafana:
     nodePort: 31300
   adminUser: admin
   # adminPassword: intentionally omitted — passed via pipeline variable $(GRAFANA_ADMIN_PASSWORD)
+  deploymentStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
   resources:
     requests:
       memory: 256Mi

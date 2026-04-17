@@ -215,7 +215,7 @@ stages:
         overrideValues: 'grafana.adminPassword=$(GRAFANA_ADMIN_PASSWORD)'
         install: true
         waitForExecution: true
-        arguments: '--create-namespace --timeout 5m'
+        arguments: '--create-namespace --timeout 10m'
 
     - task: Kubernetes@1
       displayName: Apply VoteApp alert rules

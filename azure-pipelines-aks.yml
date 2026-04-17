@@ -131,6 +131,7 @@ stages:
           rm -f "$MANIFEST_DIR/dora-collector-deployment.yaml"
           rm -f "$MANIFEST_DIR/pushgateway-deployment.yaml"
           rm -f "$MANIFEST_DIR/decision-log-deployment.yaml"
+          rm -f "$MANIFEST_DIR/agent-deployment.yaml"
 
           sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|" \
             "$MANIFEST_DIR/vote-deployment.yaml"

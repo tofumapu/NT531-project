@@ -1,6 +1,55 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
 *.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# ─── .NET / C# ────────────────────────────────────────────────────────────────
 project.lock.json
 bin/
 obj/
 .vs/
+*.user
+
+# ─── Node.js ──────────────────────────────────────────────────────────────────
 node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm/
+
+# ─── Azure DevOps Agent (1.1 GB runtime — contains RSA private keys!) ────────
+agentpool/
+
+# ─── Test results (raw execution outputs, not source code) ───────────────────
+k6/results/
+scenarios/results/
+
+# ─── Environment / secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.secret
+*.credentials
+.credentials*
+*_rsaparams
+
+# ─── IDE & OS ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Logs & temp ──────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+/tmp/
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+.dockerignore.local

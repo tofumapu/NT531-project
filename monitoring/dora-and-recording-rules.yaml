@@ -1,0 +1,93 @@
+---
+# Recording rules + alerts cho DORA collector và Pushgateway events
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dora-and-recording-rules
+  namespace: monitoring
+  labels:
+    release: prom-stack
+spec:
+  groups:
+    # ---- Recording rules: pre-compute để dashboard nhanh ----
+    - name: voteapp.recording.rules
+      interval: 30s
+      rules:
+        - record: voteapp:vote_request_rate:rate5m
+          expr: sum(rate(vote_http_requests_total[5m]))
+        - record: voteapp:vote_latency_p95_ms:rate5m
+          expr: histogram_quantile(0.95, sum(rate(vote_http_request_duration_seconds_bucket[5m])) by (le)) * 1000
+        - record: voteapp:vote_latency_p99_ms:rate5m
+          expr: histogram_quantile(0.99, sum(rate(vote_http_request_duration_seconds_bucket[5m])) by (le)) * 1000
+        - record: voteapp:result_request_rate:rate5m
+          expr: sum(rate(result_http_requests_total[5m]))
+        - record: voteapp:tcp_retransmission_rate:percent
+          expr: |
+            (
+              rate(node_netstat_Tcp_RetransSegs[5m])
+              /
+              clamp_min(rate(node_netstat_Tcp_OutSegs[5m]), 1)
+            ) * 100
+        - record: voteapp:node_cpu_usage:percent
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        - record: voteapp:node_memory_available:percent
+          expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+
+    # ---- DORA-related alerts ----
+    - name: dora.alerts
+      rules:
+        - alert: DoraCollectorDown
+          expr: dora_collector_up == 0 or absent(dora_collector_last_run_timestamp)
+          for: 5m
+          labels:
+            severity: warning
+            team: devops
+          annotations:
+            summary: "DORA collector down or no data"
+            description: "DORA collector chua cap nhat metrics trong 5 phut. Kiem tra pod o namespace monitoring."
+
+        - alert: DoraCollectorStale
+          expr: (time() - dora_collector_last_run_timestamp) > 300
+          for: 2m
+          labels:
+            severity: warning
+            team: devops
+          annotations:
+            summary: "DORA collector data is stale"
+            description: "Lan run gan nhat cua DORA collector cach day {{ $value }} giay (>5 phut)."
+
+        - alert: DoraChangeFailureRateHigh
+          expr: dora_change_failure_rate_24h > 0.30
+          for: 10m
+          labels:
+            severity: warning
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "Change Failure Rate cao trong 24h"
+            description: "Change Failure Rate = {{ $value | humanizePercentage }} trong 24h gan day. Kiem tra deployment lien tiep lam fail."
+
+        - alert: DoraMttrHigh
+          expr: dora_mttr_seconds_avg_24h > 1800
+          for: 10m
+          labels:
+            severity: warning
+            tier: "2"
+            team: devops
+          annotations:
+            summary: "MTTR trung binh 24h cao"
+            description: "MTTR avg 24h = {{ $value }}s (>30 phut)."
+
+    # ---- Scenario events từ Pushgateway ----
+    - name: scenarios.alerts
+      rules:
+        - alert: BadDeploymentRecorded
+          expr: increase(bad_deployment_total[10m]) > 0
+          for: 1m
+          labels:
+            severity: info
+            team: devops
+            scenario: bad_deployment
+          annotations:
+            summary: "Bad deployment scenario vua chay"
+            description: "Co {{ $value }} bad deployment event trong 10 phut gan day. Recovery: {{ with query \"bad_deployment_recovery_seconds\" }}{{ . | first | value }}s{{ end }}."

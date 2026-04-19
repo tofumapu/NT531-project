@@ -1,0 +1,22 @@
+{
+  "scenario": "normal",
+  "vus_max": 20,
+  "duration_s": 83.31268168599999,
+  "iterations": 1759,
+  "rps_avg": "42.2",
+  "errors_total": "N/A",
+  "error_rate_pct": "0.000",
+  "latency_ms": {
+    "avg": "149.81",
+    "p50": "90.30",
+    "p90": "195.28",
+    "p95": "302.10",
+    "p99": "1470.86",
+    "max": "5664.84"
+  },
+  "vote_latency_ms": {
+    "p95": "313.19",
+    "p99": "1574.28"
+  },
+  "thresholds_passed": true
+}

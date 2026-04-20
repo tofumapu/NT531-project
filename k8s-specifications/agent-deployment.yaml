@@ -1,0 +1,226 @@
+---
+# 9Router đã tự cấu hình credential cho combo phía sau ⇒ Agent KHÔNG cần secret API key.
+# Chỉ cần `LLM_BASE_URL` trỏ tới endpoint 9Router và `LLM_MODEL` là combo cần dùng.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent
+  namespace: monitoring
+---
+# Tạo secret trước khi apply manifest này:
+#   kubectl -n monitoring create secret generic agent-azdo \
+#     --from-literal=AZDO_PAT="<your-pat>" \
+#     --dry-run=client -o yaml | kubectl apply -f -
+---
+# RBAC: agent cần đọc state cluster + thực hiện remediation actions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-remediator
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]                    # restart action
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]   # rollback + scale
+  - apiGroups: ["apps"]
+    resources: ["deployments/rollback"]
+    verbs: ["create"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors", "podmonitors", "prometheusrules"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-remediator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agent-remediator
+subjects:
+  - kind: ServiceAccount
+    name: agent
+    namespace: monitoring
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+  namespace: monitoring
+  labels:
+    app: agent
+    component: ai-remediator
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+        component: ai-remediator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: agent
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: agent
+          image: tofuvotingappacr.azurecr.io/agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Endpoints
+            - name: DECISION_LOG_URL
+              value: "http://decision-log.monitoring.svc.cluster.local:8000"
+            - name: PROMETHEUS_URL
+              value: "http://prom-stack-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            - name: ALERTMANAGER_URL
+              value: "http://prom-stack-kube-prometheus-alertmanager.monitoring.svc.cluster.local:9093"
+            # 9Router gateway (OpenAI-compatible). 9Router đã tự xử lý credential
+            # cho từng combo phía sau ⇒ KHÔNG cần `LLM_API_KEY` ở đây.
+            #
+            # ⚠️ Giá trị bên dưới chỉ đúng khi 9Router reachable từ pod AKS.
+            #    9Router thường chạy trên máy dev (vd. Windows host của WSL2 ở
+            #    http://172.22.240.1:20128/v1) ⇒ pod AKS KHÔNG reach được.
+            #    Cách xử lý: tunnel 9Router ra public (ngrok/cloudflared) rồi
+            #    override LLM_BASE_URL=https://<tunnel-host>/v1, hoặc deploy
+            #    9Router in-cluster làm Service.
+            - name: LLM_BASE_URL
+              value: "https://height-jets-aviation-buying.trycloudflare.com/v1"
+            - name: LLM_MODEL
+              value: "devops-test-agent"
+            - name: LLM_TIMEOUT_SECONDS
+              value: "30"
+            # Safety knobs
+            - name: MAX_ACTIONS_PER_MINUTE
+              value: "3"
+            - name: MIN_CONFIDENCE_FOR_ACTION
+              value: "0.6"
+            - name: AGENT_DRY_RUN
+              value: "false"              # set "true" để test không thực thi
+            # Lifecycle tracker: sau khi agent action, chờ N giây xem alert có
+            # resolved không. Quá hạn → escalate qua Telegram (cần human).
+            - name: REMEDIATION_TIMEOUT_SECONDS
+              value: "180"
+            # Telegram bridge (optional). Để cả 2 var trống → notifier sẽ skip an toàn.
+            # Tạo secret:
+            #   kubectl -n monitoring create secret generic agent-telegram \
+            #     --from-literal=TELEGRAM_BOT_TOKEN="123:ABC..." \
+            #     --from-literal=TELEGRAM_CHAT_ID="-1001234567890" \
+            #     --dry-run=client -o yaml | kubectl apply -f -
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-telegram
+                  key: TELEGRAM_BOT_TOKEN
+                  optional: true
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agent-telegram
+                  key: TELEGRAM_CHAT_ID
+                  optional: true
+            - name: TELEGRAM_NOTIFY_RESOLVED
+              value: "true"
+            # Azure DevOps integration (pipeline_rerun action).
+            # Tạo secret:
+            #   kubectl -n monitoring create secret generic agent-azdo \
+            #     --from-literal=AZDO_PAT="<your-pat>" \
+            #     --dry-run=client -o yaml | kubectl apply -f -
+            - name: AZDO_ORG
+              value: "tofucut3"
+            - name: AZDO_PROJECT
+              value: "votingApp"
+            - name: AZDO_PIPELINE_ID
+              value: "4"
+            - name: AZDO_BRANCH
+              value: "dependabot/npm_and_yarn/result/express-4.19.2"
+            - name: AZDO_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: agent-azdo
+                  key: AZDO_PAT
+                  optional: true
+            # ArgoCD integration (argocd_sync action)
+            - name: ARGOCD_APP_NAME
+              value: "voteapp-service"
+            - name: ARGOCD_NAMESPACE
+              value: "argocd"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+  namespace: monitoring
+  labels:
+    app: agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+  selector:
+    app: agent
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agent
+  namespace: monitoring
+  labels:
+    release: prom-stack
+spec:
+  selector:
+    matchLabels:
+      app: agent
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

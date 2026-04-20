@@ -6,6 +6,11 @@ metadata:
   name: vote
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: vote
@@ -13,10 +18,24 @@ spec:
     metadata:
       labels:
         app: vote
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "80"
     spec:
+      imagePullSecrets:
+      - name: acr-secret
       containers:
-      - image: dockersamples/examplevotingapp_vote
+      - image: tofuvotingappacr.azurecr.io/votingapp/vote:72
         name: vote
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: vote
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi

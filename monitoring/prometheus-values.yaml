@@ -1,0 +1,117 @@
+defaultRules:
+  create: true
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 1536Mi
+        cpu: 1000m
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+
+grafana:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 31300
+  adminUser: admin
+  # adminPassword: intentionally omitted — passed via pipeline variable $(GRAFANA_ADMIN_PASSWORD)
+  deploymentStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 300m
+  sidecar:
+    datasources:
+      enabled: true
+    dashboards:
+      enabled: true
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+  config:
+    global:
+      resolve_timeout: 2m
+    route:
+      receiver: "agent-webhook"
+      group_by:
+        - alertname
+        - namespace
+        - severity
+      group_wait: 15s
+      group_interval: 30s
+      repeat_interval: 5m
+      routes:
+        - matchers:
+            - alertname="Watchdog"
+          receiver: "null"
+          continue: false
+        # Critical/warning vẫn về cùng agent — Agent quyết định mức độ
+        - matchers:
+            - severity="critical"
+          receiver: "agent-webhook"
+          continue: true
+        - matchers:
+            - severity="warning"
+          receiver: "agent-webhook"
+          continue: true
+    receivers:
+      - name: "null"
+      - name: "agent-webhook"
+        webhook_configs:
+          - url: "http://agent.monitoring.svc.cluster.local:8080/webhook/alert"
+            send_resolved: true
+            max_alerts: 0          # 0 = no limit per request
+            http_config:
+              follow_redirects: true
+
+"prometheus-node-exporter":
+  enabled: true
+
+"kube-state-metrics":
+  enabled: true
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  service:
+    selector:
+      component: kube-proxy

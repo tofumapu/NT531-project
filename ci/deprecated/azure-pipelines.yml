@@ -1,0 +1,96 @@
+trigger: none
+pr: none
+
+# Deprecated pipeline.
+# Use azure-pipelines-aks.yml for build, push, and deploy.
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '00f95541-34f4-46c8-81bc-fb3b7dfc34e0'
+  imageRepository: 'votingapp'
+  containerRegistry: 'tofuvotingappacr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/vote/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+pool:
+  name: 'votingApp-Agent'
+
+stages:
+- stage: Build
+  displayName: Build the Voting App
+  jobs:
+  - job: Build
+    displayName: Build
+
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        containerRegistry: 'tofuVotingAppACR'
+        repository: 'votingApp/vote'
+        command: 'build'
+        dockerfile: 'vote/Dockerfile'
+        tags: |
+          $(tag)
+          latest
+        arguments: '--network=host'
+- stage: Push
+  displayName: Push the Voting App
+  jobs:
+  - job: Push
+    displayName: Pushing the voting App
+    steps:
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'tofuVotingAppACR'
+        repository: 'votingApp/vote'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
+- stage: UpdateK8sManifest
+  displayName: Update K8s Manifest
+  dependsOn: Push
+  jobs:
+  - job: UpdateManifest
+    displayName: Update manifest with new image tag
+    steps:
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          set -x
+          set -e
+
+          git config --global user.email "pipeline@devops.com"
+          git config --global user.name "Azure Pipeline"
+          git config --global http.postBuffer 524288000
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 999
+
+          REPO_URL="https://$(PAT)@dev.azure.com/tofucut3/votingApp/_git/votingApp"
+          BRANCH="dependabot/npm_and_yarn/result/express-4.19.2"
+
+          git clone -b "$BRANCH" "$REPO_URL" /tmp/temp_repo
+          cd /tmp/temp_repo
+
+          echo "=== Nội dung trước khi sửa ==="
+          cat k8s-specifications/vote-deployment.yaml | grep image
+
+          sed -i "s|image:.*|image: $(containerRegistry)/$(imageRepository)/vote:$(tag)|g" \
+              k8s-specifications/vote-deployment.yaml
+
+          echo "=== Nội dung sau khi sửa ==="
+          cat k8s-specifications/vote-deployment.yaml | grep image
+
+          git add k8s-specifications/vote-deployment.yaml
+          git diff --staged --quiet \
+              && echo "Không có thay đổi" \
+              || git commit -m "Update vote image to tag $(tag)"
+          git push
+
+          rm -rf /tmp/temp_repo
+      displayName: Update K8s Manifest inline

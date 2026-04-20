@@ -1,0 +1,25 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-loss-worker-to-db
+  namespace: default
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: worker
+  loss:
+    loss: "10"
+    correlation: "25"
+  direction: to
+  target:
+    selector:
+      namespaces:
+        - default
+      labelSelectors:
+        app: db
+    mode: all
+  duration: "120s"

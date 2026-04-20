@@ -13,7 +13,16 @@ spec:
     metadata:
       labels:
         app: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
     spec:
+      imagePullSecrets:
+      - name: acr-secret
       containers:
-      - image: dockersamples/examplevotingapp_worker
+      - image: tofuvotingappacr.azurecr.io/votingapp/worker:72
         name: worker
+        ports:
+        - containerPort: 9090
+          name: metrics

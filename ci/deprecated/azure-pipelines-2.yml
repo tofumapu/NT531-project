@@ -1,0 +1,69 @@
+trigger: none
+pr: none
+
+# Deprecated pipeline.
+# Use azure-pipelines-aks.yml for build, push, and deploy.
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: '00f95541-34f4-46c8-81bc-fb3b7dfc34e0'
+  imageRepository: 'votingapp'
+  containerRegistry: 'tofuvotingappacr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/worker/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+pool:
+  name: 'votingApp-Agent'
+
+stages:
+- stage: Build
+  displayName: Build the Worker App
+  jobs:
+  - job: Build
+    displayName: Build
+    steps:
+    - task: Docker@2
+      displayName: Build worker image
+      inputs:
+        containerRegistry: 'tofuVotingAppACR'
+        repository: '$(imageRepository)/worker'
+        command: 'build'
+        Dockerfile: '$(dockerfilePath)'
+        tags: |
+          $(tag)
+        arguments: '--network=host'
+
+- stage: Push
+  displayName: Push the Worker App
+  dependsOn: Build
+  jobs:
+  - job: Push
+    displayName: Push
+    steps:
+    - task: Docker@2
+      displayName: Push worker image
+      inputs:
+        containerRegistry: 'tofuVotingAppACR'
+        repository: '$(imageRepository)/worker'
+        command: 'push'
+        tags: |
+          $(tag)
+
+- stage: UpdateManifest
+  displayName: Update K8s Manifest
+  dependsOn: Push
+  jobs:
+  - job: UpdateManifest
+    displayName: Update worker manifest
+    steps:
+    - task: Bash@3
+      displayName: Run updateK8sManifests.sh for worker
+      inputs:
+        targetType: 'inline'
+        script: |
+          SCRIPT="$(Build.SourcesDirectory)/vote/updateK8sManifests.sh"
+          sed -i 's/\r$//' "$SCRIPT"
+          chmod +x "$SCRIPT"
+          bash "$SCRIPT" "worker" "$(imageRepository)" "$(tag)"

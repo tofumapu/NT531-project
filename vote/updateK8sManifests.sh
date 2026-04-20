@@ -10,7 +10,7 @@ TAG=$3
 git config --global user.email "pipeline@devops.com"
 git config --global user.name "Azure Pipeline"
 
-REPO_URL="https://AZDO_PAT_REMOVED@dev.azure.com/tofucut3/votingApp/_git/votingApp"
+REPO_URL="https://${AZDO_PAT}@dev.azure.com/tofucut3/votingApp/_git/votingApp"
 
 # Chỉ định đúng branch
 git clone -b dependabot/npm_and_yarn/result/express-4.19.2 "$REPO_URL" /tmp/temp_repo

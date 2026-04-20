@@ -8,15 +8,10 @@ metadata:
   name: agent
   namespace: monitoring
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: agent-azdo
-  namespace: monitoring
-type: Opaque
-stringData:
-  # Placeholder. Secret thật nên được overwrite khi deploy.
-  AZDO_PAT: "REPLACE_ME"
+# Tạo secret trước khi apply manifest này:
+#   kubectl -n monitoring create secret generic agent-azdo \
+#     --from-literal=AZDO_PAT="<your-pat>" \
+#     --dry-run=client -o yaml | kubectl apply -f -
 ---
 # RBAC: agent cần đọc state cluster + thực hiện remediation actions
 apiVersion: rbac.authorization.k8s.io/v1

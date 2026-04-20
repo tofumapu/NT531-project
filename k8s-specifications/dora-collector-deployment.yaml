@@ -5,16 +5,10 @@ metadata:
   name: dora-collector
   namespace: monitoring
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: dora-collector-secrets
-  namespace: monitoring
-type: Opaque
-stringData:
-  # Set bằng `kubectl create secret generic ... --from-literal=AZDO_PAT=$PAT`
-  # Manifest này là placeholder, sẽ bị overwrite bằng pipeline secret
-  AZDO_PAT: "REPLACE_ME"
+# Tạo secret trước khi apply manifest này:
+#   kubectl -n monitoring create secret generic dora-collector-secrets \
+#     --from-literal=AZDO_PAT="<your-pat>" \
+#     --dry-run=client -o yaml | kubectl apply -f -
 ---
 apiVersion: apps/v1
 kind: Deployment
